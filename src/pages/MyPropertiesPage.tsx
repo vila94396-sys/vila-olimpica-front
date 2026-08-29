@@ -17,28 +17,9 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { propertiesApi, PropertyDto } from "@/lib/api";
 
-interface PropertyRow {
-  id: string;
-  title: string;
-  description: string | null;
-  full_description: string | null;
-  property_type: string;
-  transaction_type: string;
-  price: number | null;
-  area: number | null;
-  bedrooms: number | null;
-  bathrooms: number | null;
-  parking_spots: number | null;
-  address: string | null;
-  neighborhood: string | null;
-  city: string | null;
-  owner_name: string | null;
-  owner_whatsapp: string | null;
-  image_url: string | null;
-  is_active: boolean;
-}
+type PropertyRow = PropertyDto;
 
 const PROPERTY_TYPES = [
   { value: "apartment", label: "Apartamento" },
@@ -75,56 +56,52 @@ const MyPropertiesPage = () => {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("properties")
-      .select("*")
-      .eq("user_id", user!.id)
-      .order("created_at", { ascending: false });
-    if (error) {
-      toast({ title: "Erro ao carregar", description: error.message, variant: "destructive" });
-    } else {
-      setRows((data as PropertyRow[]) || []);
+    try {
+      const data = await propertiesApi.listMine();
+      setRows(data || []);
+    } catch (error: any) {
+      toast({ title: "Erro ao carregar", description: error?.message || "Erro desconhecido", variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const toggleActive = async (row: PropertyRow) => {
-    const { error } = await supabase
-      .from("properties")
-      .update({ is_active: !row.is_active })
-      .eq("id", row.id);
-    if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await propertiesApi.update(row.id, { is_active: !row.is_active });
       toast({ title: row.is_active ? "Ocultado" : "Publicado" });
       load();
+    } catch (error: any) {
+      toast({ title: "Erro", description: error?.message || "Erro desconhecido", variant: "destructive" });
     }
   };
 
   const remove = async (row: PropertyRow) => {
-    const { error } = await supabase.from("properties").delete().eq("id", row.id);
-    if (error) {
-      toast({ title: "Erro ao apagar", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await propertiesApi.remove(row.id);
       toast({ title: "Imóvel apagado" });
       load();
+    } catch (error: any) {
+      toast({ title: "Erro ao apagar", description: error?.message || "Erro desconhecido", variant: "destructive" });
     }
   };
 
   const save = async () => {
     if (!editing) return;
     setSaving(true);
-    const { id, ...updates } = editing;
-    const { error } = await supabase.from("properties").update(updates).eq("id", id);
-    setSaving(false);
-    if (error) {
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      const { id, created_at, user_id, ...updates } = editing;
+      await propertiesApi.update(id, updates);
       toast({ title: "Alterações salvas" });
       setEditing(null);
       load();
+    } catch (error: any) {
+      toast({ title: "Erro ao salvar", description: error?.message || "Erro desconhecido", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
+
 
   const setField = <K extends keyof PropertyRow>(k: K, v: PropertyRow[K]) =>
     setEditing((e) => (e ? { ...e, [k]: v } : e));

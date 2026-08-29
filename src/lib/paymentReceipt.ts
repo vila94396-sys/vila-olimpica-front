@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
-import { supabase } from "@/integrations/supabase/client";
+import { messagesApi } from "@/lib/api";
+
 
 export interface ReceiptPayload {
   /** Identificador do recibo (será usado no nome do ficheiro) */
@@ -145,29 +146,25 @@ export const sendReceiptToResident = async (params: {
   residentUserId: string;
   message: string;
 }): Promise<{ ok: boolean; error?: string }> => {
-  const { pdf, fileName, adminUserId, residentUserId, message } = params;
-  const path = `${adminUserId}/${Date.now()}-${fileName}`;
-  const upload = await supabase.storage
-    .from("message-attachments")
-    .upload(path, pdf, { contentType: "application/pdf" });
-  if (upload.error) return { ok: false, error: upload.error.message };
+  const { pdf, fileName, residentUserId, message } = params;
+  try {
+    const file = new File([pdf], fileName, { type: "application/pdf" });
+    const uploadRes = await messagesApi.uploadAttachment(file);
+    const attachmentUrl = uploadRes?.url || null;
 
-  const signed = await supabase.storage
-    .from("message-attachments")
-    .createSignedUrl(path, 60 * 60 * 24 * 365);
-
-  const { error } = await supabase.from("messages").insert({
-    sender_id: adminUserId,
-    recipient_id: residentUserId,
-    is_from_admin: true,
-    content: message,
-    attachment_url: signed.data?.signedUrl || path,
-    attachment_name: fileName,
-    attachment_type: "application/pdf",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+    await messagesApi.send({
+      recipient_id: residentUserId,
+      content: message,
+      attachment_url: attachmentUrl,
+      attachment_name: fileName,
+      attachment_type: "application/pdf",
+    });
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Erro ao enviar recibo" };
+  }
 };
+
 
 export const downloadBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);

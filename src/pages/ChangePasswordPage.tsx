@@ -4,9 +4,9 @@ import logoVilaOlimpica from "@/assets/logo-vila-olimpica.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { clearLocalAuthSession } from "@/lib/localAuth";
 
 const passwordSchema = z.string().min(6, "A senha deve ter pelo menos 6 caracteres");
 
@@ -36,17 +36,8 @@ const ChangePasswordPage = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password,
-        data: { must_change_password: false },
-      });
-
-      if (error) {
-        toast({ title: "Erro", description: error.message, variant: "destructive" });
-      } else {
-        setIsSuccess(true);
-        toast({ title: "Sucesso!", description: "Senha alterada com sucesso." });
-      }
+      // TODO: Implement backend password change endpoint in authApi
+      toast({ title: "Funcionalidade Indisponível", description: "Por favor contate o administrador.", variant: "destructive" });
     } catch {
       toast({ title: "Erro", description: "Ocorreu um erro inesperado.", variant: "destructive" });
     } finally {
@@ -96,7 +87,7 @@ const ChangePasswordPage = () => {
               variant="ghost"
               size="sm"
               onClick={async () => {
-                await supabase.auth.signOut();
+                clearLocalAuthSession();
                 navigate("/area-morador", { replace: true });
               }}
               className="mb-4 -ml-2"

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Shield, Loader2, KeyRound, Mail, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { authApi } from "@/lib/api";
 
 const AdminsManagement = () => {
   const { user } = useAuth();
@@ -24,56 +24,19 @@ const AdminsManagement = () => {
   const [isChangingEmail, setIsChangingEmail] = useState(false);
 
   const handleChangePassword = async () => {
-    if (newPassword.length < 8) {
-      toast({ title: "Senha muito curta", description: "Mínimo de 8 caracteres.", variant: "destructive" });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast({ title: "Senhas não coincidem", description: "Verifique a confirmação.", variant: "destructive" });
-      return;
-    }
-    if (!user?.email) return;
-
-    setIsChangingPwd(true);
-    try {
-      // Re-validar a senha atual
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
-        email: user.email, password: currentPassword,
-      });
-      if (signInErr) {
-        toast({ title: "Senha atual incorreta", description: signInErr.message, variant: "destructive" });
-        setIsChangingPwd(false);
-        return;
-      }
-
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-
-      toast({ title: "Senha alterada", description: "A sua nova senha está ativa." });
-      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
-    } catch (e: any) {
-      toast({ title: "Erro", description: e.message || "Falha ao alterar senha", variant: "destructive" });
-    } finally {
-      setIsChangingPwd(false);
-    }
+    toast({
+      title: "Funcionalidade Indisponível",
+      description: "A alteração de senha deve ser feita pelo banco de dados ou painel principal.",
+      variant: "destructive",
+    });
   };
 
   const handleChangeEmail = async () => {
-    if (!newEmail.trim()) return;
-    setIsChangingEmail(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("update-admin-email", {
-        body: { email: newEmail.trim() },
-      });
-      if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
-      toast({ title: "Email atualizado", description: `Novo email: ${newEmail}. Faça login novamente.` });
-      setNewEmail("");
-      setTimeout(() => supabase.auth.signOut(), 1500);
-    } catch (e: any) {
-      toast({ title: "Erro", description: e.message || "Falha ao atualizar email", variant: "destructive" });
-    } finally {
-      setIsChangingEmail(false);
-    }
+    toast({
+      title: "Funcionalidade Indisponível",
+      description: "A alteração de e-mail deve ser feita pelo banco de dados ou painel principal.",
+      variant: "destructive",
+    });
   };
 
   return (

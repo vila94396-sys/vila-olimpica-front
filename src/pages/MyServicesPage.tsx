@@ -17,22 +17,9 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { marketplaceApi, MarketplaceServiceDto } from "@/lib/api";
 
-interface ServiceRow {
-  id: string;
-  owner_name: string;
-  business_name: string;
-  category: string;
-  phone: string;
-  email: string | null;
-  location: string | null;
-  description: string;
-  full_description: string | null;
-  hours: string | null;
-  image_url: string | null;
-  status: string;
-}
+type ServiceRow = MarketplaceServiceDto;
 
 const CATEGORIES = [
   "Alimentação", "Comércio", "Serviços", "Moda", "Transporte",
@@ -65,43 +52,42 @@ const MyServicesPage = () => {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("marketplace_services")
-      .select("*")
-      .eq("user_id", user!.id)
-      .order("created_at", { ascending: false });
-    if (error) {
-      toast({ title: "Erro ao carregar", description: error.message, variant: "destructive" });
-    } else {
-      setRows((data as ServiceRow[]) || []);
+    try {
+      const data = await marketplaceApi.listMine();
+      setRows(data || []);
+    } catch (error: any) {
+      toast({ title: "Erro ao carregar", description: error?.message || "Erro desconhecido", variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const remove = async (row: ServiceRow) => {
-    const { error } = await supabase.from("marketplace_services").delete().eq("id", row.id);
-    if (error) {
-      toast({ title: "Erro ao apagar", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await marketplaceApi.delete(row.id);
       toast({ title: "Serviço apagado" });
       load();
+    } catch (error: any) {
+      toast({ title: "Erro ao apagar", description: error?.message || "Erro desconhecido", variant: "destructive" });
     }
   };
 
   const save = async () => {
     if (!editing) return;
     setSaving(true);
-    const { id, status, ...updates } = editing;
-    const { error } = await supabase.from("marketplace_services").update(updates).eq("id", id);
-    setSaving(false);
-    if (error) {
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      const { id, status, created_at, user_id, ...updates } = editing;
+      await marketplaceApi.update(id, updates);
       toast({ title: "Alterações salvas" });
       setEditing(null);
       load();
+    } catch (error: any) {
+      toast({ title: "Erro ao salvar", description: error?.message || "Erro desconhecido", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
+
 
   const setField = <K extends keyof ServiceRow>(k: K, v: ServiceRow[K]) =>
     setEditing((e) => (e ? { ...e, [k]: v } : e));

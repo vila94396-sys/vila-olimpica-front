@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
@@ -13,53 +12,16 @@ const passwordSchema = z.string().min(6, "A senha deve ter pelo menos 6 caracter
 type ResetView = "reset-form" | "success" | "error" | "loading";
 
 const ResetPasswordPage = () => {
-  const [view, setView] = useState<ResetView>("loading");
+  const [view, setView] = useState<ResetView>("error");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ password?: string; confirmPassword?: string }>({});
-  const [errorMessage, setErrorMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("Função indisponível. Por favor contate a administração.");
   
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Check for password recovery event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setView("reset-form");
-      } else if (event === "SIGNED_IN" && session) {
-        // User is signed in, check if coming from password recovery
-        setView("reset-form");
-      }
-    });
-
-    // Check current session
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // Check URL for recovery tokens
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const type = hashParams.get("type");
-      const accessToken = hashParams.get("access_token");
-      
-      if (type === "recovery" && accessToken) {
-        setView("reset-form");
-      } else if (session) {
-        // User has a valid session, show reset form
-        setView("reset-form");
-      } else {
-        setErrorMessage("Link de recuperação inválido ou expirado. Por favor, solicite um novo link.");
-        setView("error");
-      }
-    };
-
-    // Small delay to allow auth state to settle
-    setTimeout(checkSession, 500);
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   const validateForm = () => {
     const newErrors: { password?: string; confirmPassword?: string } = {};
@@ -79,29 +41,15 @@ const ResetPasswordPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
-    
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password
+      toast({
+        title: "Erro",
+        description: "Função indisponível no momento.",
+        variant: "destructive",
       });
-      
-      if (error) {
-        toast({
-          title: "Erro",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        setView("success");
-        toast({
-          title: "Sucesso!",
-          description: "Sua senha foi redefinida com sucesso.",
-        });
-      }
     } catch (error) {
       toast({
         title: "Erro",

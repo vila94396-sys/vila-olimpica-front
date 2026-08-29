@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { marketplaceApi } from "@/lib/api";
 import WhatsAppButton from "@/components/WhatsAppButton";
 
 const RegisterServicePage = () => {
@@ -92,26 +92,15 @@ const RegisterServicePage = () => {
 
   const uploadImage = async (): Promise<string | null> => {
     if (!imageFile) return null;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    const fileExt = imageFile.name.split('.').pop();
-    const fileName = `${user?.id || 'anonymous'}/${Date.now()}.${fileExt}`;
-
-    const { data, error } = await supabase.storage
-      .from('business-images')
-      .upload(fileName, imageFile);
-
-    if (error) {
+    const formData = new FormData();
+    formData.append("image", imageFile);
+    try {
+      const result = await marketplaceApi.uploadImage(formData);
+      return result?.url || null;
+    } catch (error) {
       console.error('Upload error:', error);
       throw error;
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('business-images')
-      .getPublicUrl(fileName);
-
-    return publicUrl;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -154,30 +143,19 @@ const RegisterServicePage = () => {
         setIsUploading(false);
       }
 
-      // Obter usuário logado (opcional)
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // Salvar no banco de dados
-      const { error: dbError } = await supabase
-        .from('marketplace_services')
-        .insert({
-          user_id: user?.id || null,
-          owner_name: formData.ownerName.trim(),
-          business_name: formData.businessName.trim(),
-          category: formData.category,
-          phone: formData.phone.trim(),
-          email: formData.whatsapp.replace(/\s/g, '').replace('+', ''),
-          location: formData.location.trim() || null,
-          description: formData.description.trim(),
-          full_description: formData.fullDescription.trim() || null,
-          hours: formData.hours.trim() || null,
-          image_url: imageUrl,
-          status: 'pending'
-        });
-
-      if (dbError) {
-        throw dbError;
-      }
+      // Salvar no banco de dados via API
+      await marketplaceApi.create({
+        owner_name: formData.ownerName.trim(),
+        business_name: formData.businessName.trim(),
+        category: formData.category,
+        phone: formData.phone.trim(),
+        email: formData.whatsapp.replace(/\s/g, '').replace('+', ''),
+        location: formData.location.trim() || null,
+        description: formData.description.trim(),
+        full_description: formData.fullDescription.trim() || null,
+        hours: formData.hours.trim() || null,
+        image_url: imageUrl,
+      });
 
       toast({
         title: "Solicitação enviada!",

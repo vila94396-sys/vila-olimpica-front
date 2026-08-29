@@ -4,8 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { ffhApi } from "@/lib/api";
 import { FileSpreadsheet, Loader2, Check } from "lucide-react";
 import { formatCurrency } from "./types";
 import { cn } from "@/lib/utils";
@@ -85,25 +85,14 @@ const SaldoAuditDialog = ({ open, onOpenChange, onApplied }: Props) => {
 
       // 2. Buscar unidades atuais (paginar por segurança)
       const todas: { id: string; nome: string; divida_anterior: number; divida_inicial: number; pagamentos_historicos: number }[] = [];
-      let from = 0;
-      const PAGE = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("unidades")
-          .select("id, nome, divida_anterior, divida_inicial, pagamentos_historicos")
-          .range(from, from + PAGE - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        todas.push(...data.map((d: any) => ({
-          id: d.id,
-          nome: d.nome,
-          divida_anterior: Number(d.divida_anterior ?? 0),
-          divida_inicial: Number(d.divida_inicial ?? 0),
-          pagamentos_historicos: Number(d.pagamentos_historicos ?? 0),
-        })));
-        if (data.length < PAGE) break;
-        from += PAGE;
-      }
+      const data = await ffhApi.unidades.list();
+      todas.push(...data.map(d => ({
+        id: String(d.id),
+        nome: d.nome,
+        divida_anterior: Number(d.divida_anterior ?? 0),
+        divida_inicial: Number(d.divida_anterior ?? 0),
+        pagamentos_historicos: Number(d.pagamentos_historicos ?? 0),
+      })));
 
       // 3. Calcular diferenças (saldo "actual" do Excel == saldo histórico em aberto líquido)
       const result: DiffRow[] = [];
@@ -151,14 +140,14 @@ const SaldoAuditDialog = ({ open, onOpenChange, onApplied }: Props) => {
     if (diffs.length === 0) return;
     setApplying(true);
     try {
-      // Aplicar em lotes via update individuais (Supabase não tem batch update nativo)
       let ok = 0;
       for (const d of diffs) {
-        const { error } = await supabase
-          .from("unidades")
-          .update({ divida_anterior: d.novo, divida_inicial: d.novo, pagamentos_historicos: 0 })
-          .eq("id", d.id);
-        if (!error) ok++;
+        try {
+          await ffhApi.unidades.update(Number(d.id), { divida_acumulada: d.novo });
+          ok++;
+        } catch (e) {
+          console.error(e);
+        }
       }
       toast({ title: "Aplicado", description: `${ok}/${diffs.length} atualizações concluídas.` });
       setDiffs([]);

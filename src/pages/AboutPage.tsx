@@ -2,7 +2,6 @@ import { Building2, Shield, Users, Heart, MapPin, Award, Target, CheckCircle, Ho
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";

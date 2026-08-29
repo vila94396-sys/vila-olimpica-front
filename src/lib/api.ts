@@ -188,6 +188,7 @@ export type PropertyInput = Partial<Omit<PropertyDto, "id" | "created_at" | "use
 
 export const propertiesApi = {
   list: () => request<PropertyDto[]>("/admin/properties"),
+  listMine: () => request<PropertyDto[]>("/properties/my"),
 
   create: (payload: PropertyInput) =>
     request<PropertyDto>("/admin/properties", {
@@ -195,14 +196,14 @@ export const propertiesApi = {
       body: JSON.stringify(payload),
     }),
 
-  update: (id: number, payload: PropertyInput) =>
-    request<PropertyDto>(`/admin/properties/${id}`, {
+  update: (id: number | string, payload: PropertyInput) =>
+    request<PropertyDto>(`/properties/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
 
-  remove: (id: number) =>
-    request<{ message: string }>(`/admin/properties/${id}`, { method: "DELETE" }),
+  remove: (id: number | string) =>
+    request<{ message: string }>(`/properties/${id}`, { method: "DELETE" }),
 
   uploadImage: (file: File) => {
     const formData = new FormData();
@@ -216,8 +217,10 @@ export const propertiesApi = {
 
 export const publicPropertiesApi = {
   list: () => request<PropertyDto[]>("/properties"),
+  listMine: () => request<PropertyDto[]>("/properties/my"),
   get: (id: number | string) => request<PropertyDto>(`/properties/${id}`),
 };
+
 
 export interface UnidadeDto {
   id: number;
@@ -593,4 +596,91 @@ export const aboutGalleryApi = {
 export const publicAboutGalleryApi = {
   list: () => request<GalleryImageDto[]>("/about-gallery"),
 };
+
+export interface CommonAreaDto {
+  id: string;
+  name: string;
+  description: string;
+  capacity: number;
+  rules?: string;
+}
+
+export interface ReservationDto {
+  id: string;
+  user_id: string;
+  area_id: string;
+  reservation_date: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  common_areas?: { name: string };
+}
+
+export const reservationsApi = {
+  list: () => request<ReservationDto[]>("/reservations"),
+  listMine: () => request<ReservationDto[]>("/reservations/my"),
+  listAreas: () => request<CommonAreaDto[]>("/reservations/areas"),
+  create: (payload: { area_id: number | string; reservation_date: string; start_time: string; end_time: string; notes?: string | null }) =>
+    request<ReservationDto>("/reservations", { method: "POST", body: JSON.stringify(payload) }),
+  updateStatus: (id: number | string, status: string) =>
+    request<ReservationDto>(`/reservations/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
+  delete: (id: number | string) =>
+    request<{ message: string }>(`/reservations/${id}`, { method: "DELETE" }),
+};
+
+export interface MarketplaceServiceDto {
+  id: string;
+  user_id?: string | null;
+  owner_name: string;
+  business_name: string;
+  category: string;
+  phone: string;
+  email: string;
+  location: string | null;
+  description: string;
+  full_description: string | null;
+  hours: string | null;
+  image_url: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface MarketplaceServiceInput {
+  owner_name: string;
+  business_name: string;
+  category: string;
+  phone: string;
+  email?: string;
+  location?: string | null;
+  description: string;
+  full_description?: string | null;
+  hours?: string | null;
+  image_url?: string | null;
+}
+
+export const marketplaceApi = {
+  list: () => request<MarketplaceServiceDto[]>("/marketplace"),
+  listApproved: () => request<MarketplaceServiceDto[]>("/marketplace"),
+  listAll: () => request<MarketplaceServiceDto[]>("/admin/marketplace"),
+  listMine: () => request<MarketplaceServiceDto[]>("/marketplace/my"),
+  create: (payload: MarketplaceServiceInput) =>
+    request<MarketplaceServiceDto>("/marketplace", { method: "POST", body: JSON.stringify(payload) }),
+  update: (id: number | string, payload: Partial<MarketplaceServiceInput>) =>
+    request<MarketplaceServiceDto>(`/marketplace/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  updateStatus: (id: number | string, status: string) =>
+    request<MarketplaceServiceDto>(`/admin/marketplace/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
+  delete: (id: number | string) =>
+    request<{ message: string }>(`/marketplace/${id}`, { method: "DELETE" }),
+  uploadImage: (fileOrFormData: File | FormData) => {
+    const formData = fileOrFormData instanceof FormData ? fileOrFormData : (() => {
+      const fd = new FormData();
+      fd.append("image", fileOrFormData);
+      return fd;
+    })();
+    return request<{ url: string }>("/marketplace/upload", { method: "POST", body: formData });
+  },
+};
+
 

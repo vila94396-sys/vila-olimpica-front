@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { residentsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -55,19 +55,14 @@ const TransactionHistory = () => {
 
   const fetchTransactions = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from("condominium_fees")
-      .select("*")
-      .eq("user_id", user?.id)
-      .eq("status", "paid")
-      .order("paid_at", { ascending: false });
-
-    if (error) {
+    try {
+      const data = await residentsApi.myFees();
+      setTransactions((data || []).filter((f: any) => f.status === "paid"));
+    } catch (error) {
       console.error("Error fetching transactions:", error);
-    } else {
-      setTransactions(data || []);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleDownloadReceipt = (tx: Transaction) => {

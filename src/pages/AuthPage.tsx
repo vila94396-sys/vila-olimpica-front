@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { authApi } from "@/lib/api";
@@ -27,21 +26,12 @@ const AuthPage = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session || getLocalAuthSession()) {
+    const checkSession = () => {
+      if (getLocalAuthSession()) {
         navigate("/area-morador");
       }
     };
     checkSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        navigate("/area-morador");
-      }
-    });
-
-    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const validateForm = () => {
@@ -72,103 +62,37 @@ const AuthPage = () => {
 
     try {
       if (view === "login") {
-        // Try the local (Express/MySQL) backend first — falls back to
-        // Supabase below for accounts that only exist there.
         try {
           const { user, token } = await authApi.login(email.trim(), password);
           setLocalAuthSession({ token, user });
-          toast({
-            title: "Bem-vindo!",
-            description: "Login realizado com sucesso.",
-          });
-          navigate("/area-morador");
-          return;
-        } catch (backendError) {
-          // Not a backend account (or backend unreachable) — fall through to Supabase.
-        }
-
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-
-        if (error) {
-          const msg = error.message || "";
-          const isBanned = /banned|blocked|user is banned/i.test(msg);
-          const isInvalid = msg.includes("Invalid login credentials");
-
-          // Track failed attempt for invalid credentials
-          let lockInfo: { is_locked?: boolean; remaining?: number } = {};
-          if (isInvalid) {
-            try {
-              const { data: rec } = await supabase.functions.invoke("record-failed-login", {
-                body: { email: email.trim().toLowerCase() },
-              });
-              lockInfo = (rec as any) || {};
-            } catch (e) {
-              console.error("record-failed-login failed", e);
-            }
-          }
-
-          if (isBanned || lockInfo.is_locked) {
+          
+          if (user.status === 'LOCKED') {
             toast({
               title: "Conta bloqueada",
-              description: "Excedeu o número de tentativas. Contacte a administração para desbloquear e receber novas credenciais.",
+              description: "Sua conta foi bloqueada. Contacte a administração.",
               variant: "destructive",
             });
-          } else if (msg.includes("Email not confirmed")) {
-            toast({
-              title: "Email não verificado",
-              description: "Por favor, verifique seu email antes de fazer login.",
-              variant: "destructive",
-            });
-          } else if (isInvalid) {
-            const remaining = typeof lockInfo.remaining === "number" ? lockInfo.remaining : null;
-            toast({
-              title: "Erro de Login",
-              description: remaining !== null
-                ? `Email ou senha incorretos. Tentativas restantes: ${remaining}.`
-                : "Email ou senha incorretos. Verifique suas credenciais.",
-              variant: "destructive",
-            });
-          } else {
-            toast({ title: "Erro", description: msg, variant: "destructive" });
-          }
-        } else if (data?.session) {
-          // Reset attempts counter on successful login
-          try {
-            await supabase.functions.invoke("reset-login-attempts", {
-              body: { email: email.trim().toLowerCase() },
-            });
-          } catch (e) {
-            console.error("reset-login-attempts failed", e);
-          }
-          // Check if user must change temporary password
-          const mustChange = data.session.user.user_metadata?.must_change_password;
-          if (mustChange) {
-            navigate("/alterar-senha");
             return;
           }
+
           toast({
             title: "Bem-vindo!",
             description: "Login realizado com sucesso.",
           });
           navigate("/area-morador");
-        }
-      } else if (view === "forgot-password") {
-        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: `${window.location.origin}/reset-password`,
-        });
-        
-        if (error) {
+        } catch (backendError: any) {
           toast({
-            title: "Erro",
-            description: error.message,
+            title: "Erro de Login",
+            description: backendError.message || "Email ou senha incorretos. Verifique suas credenciais.",
             variant: "destructive",
           });
-        } else {
-          setView("password-reset-sent");
         }
+      } else if (view === "forgot-password") {
+        toast({
+          title: "Funcionalidade indisponível",
+          description: "Por favor, contacte a administração para redefinir sua senha.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       toast({

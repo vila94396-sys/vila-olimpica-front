@@ -1,1 +1,0 @@
-ALTER TABLE public.news ADD COLUMN gallery_urls text[] DEFAULT NULL;

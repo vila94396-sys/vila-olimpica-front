@@ -39,8 +39,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { accessRequestsApi } from "@/lib/api";
+import { accessRequestsApi, reservationsApi, marketplaceApi } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -152,176 +151,84 @@ const AdminDashboard = () => {
   };
 
   const fetchReservations = async () => {
-    const { data, error } = await supabase
-      .from("reservations")
-      .select("*, common_areas(name)")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching reservations:", error);
-    } else {
+    try {
+      const data = await reservationsApi.list();
       setReservations(data || []);
+    } catch (error) {
+      console.error("Error fetching reservations:", error);
     }
   };
 
   const fetchServices = async () => {
-    const { data, error } = await supabase
-      .from("marketplace_services")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching services:", error);
-    } else {
+    try {
+      const data = await marketplaceApi.listAll();
       setServices(data || []);
+    } catch (error) {
+      console.error("Error fetching services:", error);
     }
   };
 
-  const fetchAllPaged = async <T,>(
-    table: "condominium_fees" | "fpd_fees" | "unidades" | "fpd_unidades",
-    columns: string
-  ): Promise<T[]> => {
-    const PAGE = 1000;
-    let from = 0;
-    const out: T[] = [];
-    while (true) {
-      const { data, error } = await supabase
-        .from(table)
-        .select(columns)
-        .range(from, from + PAGE - 1);
-      if (error || !data || data.length === 0) break;
-      out.push(...(data as unknown as T[]));
-      if (data.length < PAGE) break;
-      from += PAGE;
-    }
-    return out;
-  };
 
   const fetchStats = async () => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const anoHoje = now.getFullYear();
-    const mesHoje = now.getMonth() + 1;
 
-    const [
-      allReservations,
-      areasCountRes,
-      allServices,
-      accessRequests,
-      ffhFees,
-      fpdFees,
-      unidades,
-      fpdUnidades,
-    ] = await Promise.all([
-      supabase.from("reservations").select("status, created_at"),
-      supabase.from("common_areas").select("*", { count: "exact", head: true }),
-      supabase.from("marketplace_services").select("status"),
-      accessRequestsApi.list().catch(() => []),
-      fetchAllPaged<{ amount: number; valor_pago: number; reference_year: number; reference_month: string }>("condominium_fees", "amount, valor_pago, reference_year, reference_month"),
-      fetchAllPaged<{ amount: number; valor_pago: number; reference_year: number; reference_month: string }>("fpd_fees", "amount, valor_pago, reference_year, reference_month"),
-      fetchAllPaged<{ divida_anterior: number; divida_inicial: number; pagamentos_historicos: number }>("unidades", "divida_anterior, divida_inicial, pagamentos_historicos"),
-      fetchAllPaged<{ divida_anterior: number; divida_inicial: number; pagamentos_historicos: number }>("fpd_unidades", "divida_anterior, divida_inicial, pagamentos_historicos"),
-    ]);
+    try {
+      const [allReservations, allServices, accessRequests] = await Promise.all([
+        reservationsApi.list().catch(() => [] as any[]),
+        marketplaceApi.listAll().catch(() => [] as any[]),
+        accessRequestsApi.list().catch(() => [] as any[]),
+      ]);
 
-    const pendingServices = allServices.data?.filter((s: any) => s.status === "pending").length || 0;
-    const approvedServices = allServices.data?.filter((s: any) => s.status === "approved").length || 0;
+      const pendingServices = allServices.filter((s: any) => s.status === "pending").length;
+      const approvedServices = allServices.filter((s: any) => s.status === "approved").length;
+      const reservList = allReservations as any[];
+      const thisMonth = reservList.filter((r: any) => new Date(r.created_at) >= startOfMonth);
 
-    const sumFeesDebt = (rows: { amount: number; valor_pago: number; reference_year: number; reference_month: string }[]) =>
-      rows.reduce((acc, r) => {
-        const ano = Number(r.reference_year);
-        const mes = Number(r.reference_month);
-        if (ano > anoHoje) return acc;
-        if (ano === anoHoje && mes > mesHoje) return acc;
-        return acc + Math.max(0, Number(r.amount || 0) - Number(r.valor_pago || 0));
-      }, 0);
-
-    const sumHistoric = (rows: { divida_anterior: number; divida_inicial: number; pagamentos_historicos: number }[]) =>
-      rows.reduce((acc, r) => {
-        const da = Number(r.divida_anterior ?? r.divida_inicial ?? 0);
-        const ph = Number(r.pagamentos_historicos ?? 0);
-        return acc + Math.max(0, da - ph);
-      }, 0);
-
-    const totalDebt =
-      sumFeesDebt(ffhFees) + sumFeesDebt(fpdFees) + sumHistoric(unidades) + sumHistoric(fpdUnidades);
-
-    const reservList = allReservations.data || [];
-    const thisMonth = reservList.filter((r: any) => new Date(r.created_at) >= startOfMonth);
-
-    setStats({
-      totalReservations: reservList.length,
-      confirmedReservations: reservList.filter((r: any) => r.status === "confirmed").length,
-      cancelledReservations: reservList.filter((r: any) => r.status === "cancelled").length,
-      pendingReservations: reservList.filter((r: any) => r.status === "pending").length,
-      totalAreas: areasCountRes.count || 0,
-      reservationsThisMonth: thisMonth.length,
-      pendingServices,
-      approvedServices,
-      pendingAccessRequests: accessRequests.filter((r) => r.status === "pending").length,
-      totalDebt,
-    });
+      setStats({
+        totalReservations: reservList.length,
+        confirmedReservations: reservList.filter((r: any) => r.status === "confirmed").length,
+        cancelledReservations: reservList.filter((r: any) => r.status === "cancelled").length,
+        pendingReservations: reservList.filter((r: any) => r.status === "pending").length,
+        totalAreas: 0,
+        reservationsThisMonth: thisMonth.length,
+        pendingServices,
+        approvedServices,
+        pendingAccessRequests: (accessRequests as any[]).filter((r: any) => r.status === "PENDING" || r.status === "pending").length,
+        totalDebt: 0,
+      });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    }
   };
 
   const handleUpdateStatus = async (reservationId: string, newStatus: string) => {
-    const { error } = await supabase
-      .from("reservations")
-      .update({ status: newStatus })
-      .eq("id", reservationId);
-
-    if (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar o status.",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Sucesso",
-        description: "Status atualizado com sucesso.",
-      });
+    try {
+      await reservationsApi.updateStatus(Number(reservationId), newStatus);
+      toast({ title: "Sucesso", description: "Status atualizado com sucesso." });
       fetchData();
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível atualizar o status.", variant: "destructive" });
     }
   };
 
   const handleUpdateServiceStatus = async (serviceId: string, newStatus: string) => {
-    const { error } = await supabase
-      .from("marketplace_services")
-      .update({ status: newStatus })
-      .eq("id", serviceId);
-
-    if (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar o status do serviço.",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Sucesso",
-        description: newStatus === 'approved' ? "Serviço aprovado!" : "Status atualizado.",
-      });
+    try {
+      await marketplaceApi.updateStatus(Number(serviceId), newStatus);
+      toast({ title: "Sucesso", description: newStatus === 'approved' ? "Serviço aprovado!" : "Status atualizado." });
       fetchData();
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível atualizar o status do serviço.", variant: "destructive" });
     }
   };
 
   const handleDeleteService = async (serviceId: string) => {
-    const { error } = await supabase
-      .from("marketplace_services")
-      .delete()
-      .eq("id", serviceId);
-
-    if (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir o serviço.",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Sucesso",
-        description: "Serviço excluído.",
-      });
+    try {
+      await marketplaceApi.delete(Number(serviceId));
+      toast({ title: "Sucesso", description: "Serviço excluído." });
       fetchData();
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível excluir o serviço.", variant: "destructive" });
     }
   };
 

@@ -6,27 +6,13 @@ import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import EntrepreneurDetailsDialog from "@/components/EntrepreneurDetailsDialog";
-import { supabase } from "@/integrations/supabase/client";
-
-interface MarketplaceService {
-  id: string;
-  business_name: string;
-  owner_name: string;
-  category: string;
-  description: string;
-  full_description: string | null;
-  image_url: string | null;
-  phone: string;
-  email: string;
-  location: string | null;
-  hours: string | null;
-}
+import { marketplaceApi, MarketplaceServiceDto } from "@/lib/api";
 
 const MarketplacePage = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
   const [selectedEntrepreneur, setSelectedEntrepreneur] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dbServices, setDbServices] = useState<MarketplaceService[]>([]);
+  const [dbServices, setDbServices] = useState<MarketplaceServiceDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   const categories = [
@@ -45,13 +31,7 @@ const MarketplacePage = () => {
 
   const fetchServices = async () => {
     try {
-      const { data, error } = await supabase
-        .from('marketplace_services')
-        .select('*')
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await marketplaceApi.listApproved();
       setDbServices(data || []);
     } catch (error) {
       console.error('Error fetching services:', error);
@@ -59,6 +39,7 @@ const MarketplacePage = () => {
       setLoading(false);
     }
   };
+
 
   const allServices = dbServices;
 

@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { residentsApi } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -280,20 +280,15 @@ const PaymentDialog = ({ fee, open, onOpenChange, onPaymentSuccess }: PaymentDia
 
   const uploadReceipt = async (feeId: string): Promise<string | null> => {
     if (!receiptFile || !user) return null;
-
-    const ext = receiptFile.name.split(".").pop() || "jpg";
-    const filePath = `${user.id}/${feeId}.${ext}`;
-
-    const { error } = await supabase.storage
-      .from("payment-receipts")
-      .upload(filePath, receiptFile, { upsert: true });
-
-    if (error) {
+    try {
+      const formData = new FormData();
+      formData.append("receipt", receiptFile);
+      const result = await residentsApi.uploadReceipt(feeId, formData);
+      return result?.url || null;
+    } catch (error) {
       console.error("Upload error:", error);
       return null;
     }
-
-    return filePath;
   };
 
   const handlePayment = async () => {
@@ -325,18 +320,12 @@ const PaymentDialog = ({ fee, open, onOpenChange, onPaymentSuccess }: PaymentDia
         return;
       }
 
-      const now = new Date().toISOString();
-      const { error: updateError } = await supabase
-        .from("condominium_fees")
-        .update({
-          status: "pending_verification",
+      try {
+        await residentsApi.submitPaymentReceipt(fee.id, {
           payment_method: selectedMethod,
           receipt_url: receiptUrl,
-          updated_at: now,
-        })
-        .eq("id", fee.id);
-
-      if (updateError) {
+        });
+      } catch (updateError) {
         console.error("Error updating fee:", updateError);
         setIsProcessing(false);
         setStep("method");
@@ -344,9 +333,9 @@ const PaymentDialog = ({ fee, open, onOpenChange, onPaymentSuccess }: PaymentDia
         return;
       }
     } else {
-      // Pagamento online (M-Pesa / e-Mola / Cartão) via edge function
-      const { data, error } = await supabase.functions.invoke("process-payment", {
-        body: {
+      // Pagamento online (M-Pesa / e-Mola / Cartão) via API backend
+      try {
+        await residentsApi.processPayment({
           feeId: fee.id,
           method: selectedMethod,
           amount: Number(fee.amount),
@@ -355,16 +344,14 @@ const PaymentDialog = ({ fee, open, onOpenChange, onPaymentSuccess }: PaymentDia
           cardExpiry: selectedMethod === "card" ? cardExpiry : undefined,
           cardCvv: selectedMethod === "card" ? cardCvv : undefined,
           cardName: selectedMethod === "card" ? cardName : undefined,
-        },
-      });
-
-      if (error || !data?.success) {
-        console.error("Payment error:", error, data);
+        });
+      } catch (payError: any) {
+        console.error("Payment error:", payError);
         setIsProcessing(false);
         setStep("form");
         toast({
           title: "Falha no pagamento",
-          description: (data?.error || error?.message) ?? "Não foi possível processar o pagamento. Tente novamente.",
+          description: payError?.message ?? "Não foi possível processar o pagamento. Tente novamente.",
           variant: "destructive",
         });
         return;
@@ -375,19 +362,9 @@ const PaymentDialog = ({ fee, open, onOpenChange, onPaymentSuccess }: PaymentDia
     setIsProcessing(false);
     setStep("success");
 
-    // Send email notification (fire-and-forget) - only for non-bank-transfer
+    // Notificação por email (fire-and-forget) — agora gerida pelo backend
     if (selectedMethod !== "bank_transfer") {
-      const paidDate = format(new Date(now), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
-      supabase.functions.invoke("send-payment-notification", {
-        body: {
-          referenceMonth: MONTH_NAMES_FULL[fee.reference_month] || fee.reference_month,
-          referenceYear: fee.reference_year,
-          amount: Number(fee.amount),
-          paymentMethod: getPaymentMethodLabel(selectedMethod),
-          paidAt: paidDate,
-          receiptId: fee.id,
-        },
-      }).catch((err) => console.error("Email notification error:", err));
+      console.log("Payment successful for method:", selectedMethod);
     }
 
     const successMessage = selectedMethod === "bank_transfer"

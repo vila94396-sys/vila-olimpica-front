@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { residentsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PaymentDialog from "./PaymentDialog";
@@ -61,20 +61,23 @@ const FeesSection = () => {
     if (!user?.id) return;
     setIsLoading(true);
 
-    const [{ data: unidadeData }, { data: feesData }] = await Promise.all([
-      supabase.from("unidades").select("id, divida_anterior, pagamentos_historicos").eq("user_id", user.id).maybeSingle(),
-      supabase.from("condominium_fees").select("*").eq("user_id", user.id)
-        .order("reference_year", { ascending: false })
-        .order("reference_month", { ascending: false }),
-    ]);
+    try {
+      const [feesData, unidadeData] = await Promise.all([
+        residentsApi.myFees(),
+        residentsApi.myUnidade(),
+      ]);
 
-    setUnidade(unidadeData ? {
-      id: unidadeData.id,
-      divida_anterior: Number(unidadeData.divida_anterior || 0),
-      pagamentos_historicos: Number(unidadeData.pagamentos_historicos || 0),
-    } : null);
-    setFees(feesData || []);
-    setIsLoading(false);
+      setUnidade(unidadeData ? {
+        id: String(unidadeData.id),
+        divida_anterior: Number(unidadeData.divida_anterior || 0),
+        pagamentos_historicos: Number(unidadeData.pagamentos_historicos || 0),
+      } : null);
+      setFees(feesData || []);
+    } catch (error) {
+      console.error("Error loading fees:", error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [user?.id]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);

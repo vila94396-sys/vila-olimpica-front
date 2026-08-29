@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { User, Session } from "@supabase/supabase-js";
+import { useAuth } from "@/hooks/useAuth";
+import { reservationsApi } from "@/lib/api";
+import { clearLocalAuthSession } from "@/lib/localAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -55,13 +56,11 @@ const timeSlots = [
 ];
 
 const ReservationsPage = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, session, isLoading: authLoading } = useAuth();
   const [areas, setAreas] = useState<CommonArea[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [myReservations, setMyReservations] = useState<Reservation[]>([]);
-  const [selectedArea, setSelectedArea] = useState<string>("");
+  const [selectedArea, setSelectedArea] = useState<string>("" );
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [startTime, setStartTime] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
@@ -74,83 +73,40 @@ const ReservationsPage = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (!session) {
-          navigate("/auth");
-        }
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (!session) {
-        navigate("/auth");
-      } else {
-        fetchAreas();
-        fetchReservations(session.user.id);
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+    if (authLoading) return;
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+    fetchAreas();
+    fetchReservations(user.id);
+  }, [authLoading, user, navigate]);
 
   const fetchAreas = async () => {
-    const { data, error } = await supabase
-      .from("common_areas")
-      .select("*")
-      .order("name");
-    
-    if (error) {
-      console.error("Error fetching areas:", error);
-    } else {
+    try {
+      const data = await reservationsApi.listAreas();
       setAreas(data || []);
+    } catch (error) {
+      console.error("Error fetching areas:", error);
     }
   };
 
   const fetchReservations = async (userId: string) => {
-    // Fetch all reservations for selected date
-    const { data: allReservations, error: allError } = await supabase
-      .from("reservations")
-      .select("*, common_areas(*)")
-      .eq("status", "confirmed")
-      .order("reservation_date", { ascending: true });
-
-    if (allError) {
-      console.error("Error fetching reservations:", allError);
-    } else {
-      setReservations(allReservations || []);
-    }
-
-    // Fetch user's reservations
-    const { data: userReservations, error: userError } = await supabase
-      .from("reservations")
-      .select("*, common_areas(*)")
-      .eq("user_id", userId)
-      .order("reservation_date", { ascending: false });
-
-    if (userError) {
-      console.error("Error fetching user reservations:", userError);
-    } else {
-      setMyReservations(userReservations || []);
+    try {
+      const [allData, myData] = await Promise.all([
+        reservationsApi.list(),
+        reservationsApi.listMine(),
+      ]);
+      setReservations((allData || []).filter((r: any) => r.status === "confirmed"));
+      setMyReservations(myData || []);
+    } catch (error) {
+      console.error("Error fetching reservations:", error);
     }
   };
 
+
   const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut({ scope: "global" });
-    } catch (e) {
-      console.error("signOut error:", e);
-    }
-    try {
-      Object.keys(localStorage)
-        .filter((k) => k.startsWith("sb-") || k.includes("supabase.auth"))
-        .forEach((k) => localStorage.removeItem(k));
-    } catch {}
+    clearLocalAuthSession();
     window.location.replace("/auth");
   };
 
@@ -189,75 +145,48 @@ const ReservationsPage = () => {
 
     setIsSubmitting(true);
 
-    const { error } = await supabase.from("reservations").insert({
-      user_id: user?.id,
-      area_id: selectedArea,
-      reservation_date: format(selectedDate, "yyyy-MM-dd"),
-      start_time: startTime + ":00",
-      end_time: endTime + ":00",
-      notes,
-      status: "confirmed",
-    });
+    try {
+      await reservationsApi.create({
+        area_id: Number(selectedArea),
+        reservation_date: format(selectedDate, "yyyy-MM-dd"),
+        start_time: startTime + ":00",
+        end_time: endTime + ":00",
+        notes,
+      });
 
-    if (error) {
-      if (error.code === "23505") {
-        toast({
-          title: "Erro",
-          description: "Este horário já está reservado. Por favor, escolha outro horário.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Erro",
-          description: "Não foi possível realizar a reserva. Tente novamente.",
-          variant: "destructive",
-        });
-      }
-    } else {
       toast({
         title: "Reserva Confirmada!",
         description: "Sua reserva foi realizada com sucesso.",
       });
-      
-      // Reset form
       setSelectedArea("");
       setSelectedDate(undefined);
       setStartTime("");
       setEndTime("");
       setNotes("");
       setAcceptedRules(false);
-      
-      // Refresh reservations
-      if (user) {
-        fetchReservations(user.id);
-      }
+      if (user) fetchReservations(user.id);
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error?.message || "Não foi possível realizar a reserva. Tente novamente.",
+        variant: "destructive",
+      });
     }
 
     setIsSubmitting(false);
   };
 
   const handleCancelReservation = async (reservationId: string) => {
-    const { error } = await supabase
-      .from("reservations")
-      .update({ status: "cancelled" })
-      .eq("id", reservationId);
-
-    if (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível cancelar a reserva. Tente novamente.",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Reserva Cancelada",
-        description: "Sua reserva foi cancelada com sucesso.",
-      });
-      if (user) {
-        fetchReservations(user.id);
-      }
+    try {
+      await reservationsApi.updateStatus(Number(reservationId), "cancelled");
+      toast({ title: "Reserva Cancelada", description: "Sua reserva foi cancelada com sucesso." });
+      if (user) fetchReservations(user.id);
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível cancelar a reserva. Tente novamente.", variant: "destructive" });
     }
   };
+
+  const isLoading = authLoading;
 
   const selectedAreaData = areas.find((a) => a.id === selectedArea);
 
@@ -269,7 +198,7 @@ const ReservationsPage = () => {
     );
   }
 
-  if (!session) {
+  if (!user) {
     return null;
   }
 

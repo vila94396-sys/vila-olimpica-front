@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { fpdApi } from "@/lib/api";
+
+import { fpdApi, resolveMediaUrl } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -228,13 +228,7 @@ const FpdDataGrid = () => {
     setReceiptDialogOpen(true);
     setReceiptUrl(null);
     setReceiptIsPdf(url.toLowerCase().endsWith(".pdf"));
-    const { data } = await supabase.storage.from("payment-receipts").createSignedUrl(url, 300);
-    if (data?.signedUrl) {
-      setReceiptUrl(data.signedUrl);
-    } else {
-      toast({ title: "Erro", description: "Não foi possível carregar o comprovativo.", variant: "destructive" });
-      setReceiptDialogOpen(false);
-    }
+    setReceiptUrl(resolveMediaUrl(url));
     setReceiptLoading(false);
   };
 

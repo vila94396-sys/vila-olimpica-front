@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +22,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { reservationsApi } from "@/lib/api";
 
 interface CommonArea {
   id: string;
@@ -78,25 +78,21 @@ const ReservationsManagement = () => {
   };
 
   const fetchReservations = async () => {
-    const { data, error } = await supabase
-      .from("reservations")
-      .select("*, common_areas(name)")
-      .order("reservation_date", { ascending: false });
-
-    if (error) {
+    try {
+      const data = await reservationsApi.list();
+      setReservations(data);
+    } catch (error) {
       console.error("Error fetching reservations:", error);
-    } else {
-      setReservations(data || []);
     }
   };
 
   const fetchAreas = async () => {
-    const { data, error } = await supabase
-      .from("common_areas")
-      .select("id, name, description, capacity")
-      .order("name");
-
-    if (!error) setAreas(data || []);
+    try {
+      const data = await reservationsApi.listAreas();
+      setAreas(data);
+    } catch (error) {
+       console.error("Error fetching areas:", error);
+    }
   };
 
   const handleAddReservation = async () => {
@@ -108,46 +104,44 @@ const ReservationsManagement = () => {
     }
 
     setIsSubmitting(true);
-    const { error } = await supabase.from("reservations").insert({
-      user_id: user.id,
-      area_id: selectedArea,
-      reservation_date: format(selectedDate, "yyyy-MM-dd"),
-      start_time: startTime + ":00",
-      end_time: endTime + ":00",
-      notes: notes || null,
-      status: "confirmed",
-    });
+    
+    try {
+      await reservationsApi.create({
+        area_id: Number(selectedArea),
+        reservation_date: format(selectedDate, "yyyy-MM-dd"),
+        start_time: startTime + ":00",
+        end_time: endTime + ":00",
+        notes: notes || null,
+      });
 
-    if (error) {
-      toast({ title: "Erro", description: "Não foi possível criar a reserva.", variant: "destructive" });
-    } else {
       toast({ title: "Sucesso", description: "Reserva criada com sucesso." });
       setDialogOpen(false);
       resetForm();
       fetchReservations();
+    } catch (error) {
+       toast({ title: "Erro", description: "Não foi possível criar a reserva.", variant: "destructive" });
     }
+    
     setIsSubmitting(false);
   };
 
   const handleDeleteReservation = async (id: string) => {
-    const { error } = await supabase.from("reservations").delete().eq("id", id);
-
-    if (error) {
-      toast({ title: "Erro", description: "Não foi possível eliminar a reserva.", variant: "destructive" });
-    } else {
-      toast({ title: "Sucesso", description: "Reserva eliminada com sucesso." });
-      fetchReservations();
+    try {
+      // NOTE: backend express has no direct delete in reservations, so we'll update status to cancelled
+      await handleUpdateStatus(id, "cancelled");
+      toast({ title: "Sucesso", description: "Reserva cancelada com sucesso." });
+    } catch (error) {
+       toast({ title: "Erro", description: "Não foi possível cancelar a reserva.", variant: "destructive" });
     }
   };
 
   const handleUpdateStatus = async (id: string, status: string) => {
-    const { error } = await supabase.from("reservations").update({ status }).eq("id", id);
-
-    if (error) {
-      toast({ title: "Erro", description: "Não foi possível atualizar o status.", variant: "destructive" });
-    } else {
+    try {
+      await reservationsApi.updateStatus(Number(id), status);
       toast({ title: "Sucesso", description: "Status atualizado." });
       fetchReservations();
+    } catch (error) {
+       toast({ title: "Erro", description: "Não foi possível atualizar o status.", variant: "destructive" });
     }
   };
 
@@ -214,7 +208,7 @@ const ReservationsManagement = () => {
                         </SelectTrigger>
                         <SelectContent>
                           {areas.map((area) => (
-                            <SelectItem key={area.id} value={area.id}>
+                            <SelectItem key={area.id} value={String(area.id)}>
                               {area.name} (Cap: {area.capacity})
                             </SelectItem>
                           ))}
@@ -367,13 +361,13 @@ const ReservationsManagement = () => {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Eliminar reserva?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Tem certeza que deseja eliminar esta reserva? Esta ação não pode ser revertida.
+                                Tem certeza que deseja cancelar esta reserva?
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogCancel>Voltar</AlertDialogCancel>
                               <AlertDialogAction onClick={() => handleDeleteReservation(reservation.id)}>
-                                Eliminar
+                                Cancelar Reserva
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>

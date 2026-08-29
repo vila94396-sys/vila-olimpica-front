@@ -7,7 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { accessRequestsApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface NotificationBellProps {
@@ -29,58 +29,23 @@ const NotificationBell = ({ onNavigate }: NotificationBellProps) => {
   const [open, setOpen] = useState(false);
 
   const fetchCounts = async () => {
-    const [accessRes, resvRes, svcRes] = await Promise.all([
-      supabase
-        .from("access_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending"),
-      supabase
-        .from("reservations")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending"),
-      supabase
-        .from("marketplace_services")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending"),
-    ]);
-
-    setCounts({
-      accessRequests: accessRes.count || 0,
-      reservations: resvRes.count || 0,
-      services: svcRes.count || 0,
-    });
+    try {
+      const accessReqs = await accessRequestsApi.list();
+      const pendingReqs = accessReqs.filter(r => r.status === 'PENDING').length;
+      setCounts({
+        accessRequests: pendingReqs,
+        reservations: 0,
+        services: 0,
+      });
+    } catch (error) {
+      console.error("Failed to load notifications", error);
+    }
   };
 
   useEffect(() => {
     fetchCounts();
-
-    // Realtime subscriptions
-    const channel = supabase
-      .channel("admin-notifications")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "access_requests" },
-        () => fetchCounts()
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "reservations" },
-        () => fetchCounts()
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "marketplace_services" },
-        () => fetchCounts()
-      )
-      .subscribe();
-
-    // Polling fallback every 60s
     const interval = setInterval(fetchCounts, 60000);
-
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, []);
 
   const total = counts.accessRequests + counts.reservations + counts.services;
