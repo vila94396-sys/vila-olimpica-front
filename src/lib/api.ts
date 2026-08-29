@@ -566,3 +566,31 @@ export const ffhApi = {
       request<CondominiumFeeDto>(`/admin/ffh/fees/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
   },
 };
+
+export interface GalleryImageDto {
+  id: string;
+  image_url: string;
+  title: string | null;
+  display_order: number;
+  created_at: string;
+}
+
+export const aboutGalleryApi = {
+  list: () => request<GalleryImageDto[]>("/admin/about-gallery"),
+  create: (payload: { image_url: string; title?: string | null; display_order?: number }) =>
+    request<GalleryImageDto>("/admin/about-gallery", { method: "POST", body: JSON.stringify(payload) }),
+  update: (id: string | number, payload: { title?: string | null; display_order?: number }) =>
+    request<GalleryImageDto>(`/admin/about-gallery/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  remove: (id: string | number) =>
+    request<{ message: string }>(`/admin/about-gallery/${id}`, { method: "DELETE" }),
+  uploadImage: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<{ url: string }>("/admin/about-gallery/upload", { method: "POST", body: formData });
+  },
+};
+
+export const publicAboutGalleryApi = {
+  list: () => request<GalleryImageDto[]>("/about-gallery"),
+};
+

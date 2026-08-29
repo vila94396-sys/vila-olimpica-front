@@ -8,24 +8,20 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import aerialImage1 from "@/assets/vila-olimpica-aerial-1.jpg";
 
-interface GalleryImage {
-  id: string;
-  image_url: string;
-  title: string | null;
-  display_order: number;
-}
+import { publicAboutGalleryApi, resolveMediaUrl, GalleryImageDto } from "@/lib/api";
 
 const AboutPage = () => {
-  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [galleryImages, setGalleryImages] = useState<GalleryImageDto[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchGallery = async () => {
-      const { data } = await supabase
-        .from("about_gallery")
-        .select("*")
-        .order("display_order", { ascending: true });
-      if (data) setGalleryImages(data);
+      try {
+        const data = await publicAboutGalleryApi.list();
+        if (data) setGalleryImages(data);
+      } catch (err) {
+        console.error("Error fetching about gallery:", err);
+      }
     };
     fetchGallery();
   }, []);
@@ -214,7 +210,7 @@ const AboutPage = () => {
                     className="group relative flex-shrink-0 w-72 md:w-96 aspect-[4/3] overflow-hidden rounded-xl"
                   >
                     <img
-                      src={image.image_url}
+                      src={resolveMediaUrl(image.image_url) || ""}
                       alt={image.title || "Vila Olímpica"}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />

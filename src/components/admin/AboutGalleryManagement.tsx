@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { aboutGalleryApi, resolveMediaUrl, GalleryImageDto } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,16 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Plus, Trash2, GripVertical, Upload, Image } from "lucide-react";
 
-interface GalleryImage {
-  id: string;
-  image_url: string;
-  title: string | null;
-  display_order: number;
-  created_at: string;
-}
-
 const AboutGalleryManagement = () => {
-  const [images, setImages] = useState<GalleryImage[]>([]);
+  const [images, setImages] = useState<GalleryImageDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [title, setTitle] = useState("");
@@ -29,24 +21,21 @@ const AboutGalleryManagement = () => {
   }, []);
 
   const fetchImages = async () => {
-    const { data, error } = await supabase
-      .from("about_gallery")
-      .select("*")
-      .order("display_order", { ascending: true });
-
-    if (error) {
-      toast({ title: "Erro ao carregar imagens", variant: "destructive" });
-    } else {
+    try {
+      const data = await aboutGalleryApi.list();
       setImages(data || []);
+    } catch (error: any) {
+      toast({ title: "Erro ao carregar imagens", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const validFiles = files.filter(f => {
-      if (f.size > 5 * 1024 * 1024) {
-        toast({ title: `${f.name} excede 5MB`, variant: "destructive" });
+      if (f.size > 10 * 1024 * 1024) {
+        toast({ title: `${f.name} excede 10MB`, variant: "destructive" });
         return false;
       }
       return f.type.startsWith("image/");
@@ -65,27 +54,13 @@ const AboutGalleryManagement = () => {
 
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        const fileName = `${Date.now()}-${i}-${file.name}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("about-images")
-          .upload(fileName, file);
-
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage
-          .from("about-images")
-          .getPublicUrl(fileName);
-
-        const { error: insertError } = await supabase
-          .from("about_gallery")
-          .insert({
-            image_url: urlData.publicUrl,
-            title: title || null,
-            display_order: maxOrder + 1 + i,
-          });
-
-        if (insertError) throw insertError;
+        const uploadRes = await aboutGalleryApi.uploadImage(file);
+        
+        await aboutGalleryApi.create({
+          image_url: uploadRes.url,
+          title: title || null,
+          display_order: maxOrder + 1 + i,
+        });
       }
 
       toast({ title: "Imagens adicionadas com sucesso!" });
@@ -100,16 +75,9 @@ const AboutGalleryManagement = () => {
     }
   };
 
-  const handleDelete = async (id: string, imageUrl: string) => {
+  const handleDelete = async (id: string) => {
     try {
-      const fileName = imageUrl.split("/").pop();
-      if (fileName) {
-        await supabase.storage.from("about-images").remove([fileName]);
-      }
-
-      const { error } = await supabase.from("about_gallery").delete().eq("id", id);
-      if (error) throw error;
-
+      await aboutGalleryApi.remove(id);
       toast({ title: "Imagem removida!" });
       fetchImages();
     } catch (error: any) {
@@ -118,15 +86,11 @@ const AboutGalleryManagement = () => {
   };
 
   const handleUpdateTitle = async (id: string, newTitle: string) => {
-    const { error } = await supabase
-      .from("about_gallery")
-      .update({ title: newTitle || null })
-      .eq("id", id);
-
-    if (error) {
-      toast({ title: "Erro ao atualizar", variant: "destructive" });
-    } else {
+    try {
+      await aboutGalleryApi.update(id, { title: newTitle || null });
       fetchImages();
+    } catch (error: any) {
+      toast({ title: "Erro ao atualizar", variant: "destructive" });
     }
   };
 
@@ -199,7 +163,7 @@ const AboutGalleryManagement = () => {
                   <div key={image.id} className="flex items-center gap-4 bg-secondary/50 p-3 rounded-lg border">
                     <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <img
-                      src={image.image_url}
+                      src={resolveMediaUrl(image.image_url) || ""}
                       alt={image.title || ""}
                       className="w-20 h-16 object-cover rounded-md flex-shrink-0"
                     />
@@ -212,7 +176,7 @@ const AboutGalleryManagement = () => {
                     <Button
                       variant="destructive"
                       size="icon"
-                      onClick={() => handleDelete(image.id, image.image_url)}
+                      onClick={() => handleDelete(image.id)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
