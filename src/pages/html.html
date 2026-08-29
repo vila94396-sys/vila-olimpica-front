@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deepwork — Offshore Engineering</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#F4F7F8;
+    --panel:#FFFFFF;
+    --panel-2:#EEF3F4;
+    --line:#D6DEE1;
+    --text:#0B222E;
+    --text-dim:#5C7480;
+    --orange:#E64A19;
+    --cyan:#0E8C82;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;}
+
+  body{
+    background:var(--ink);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:0;
+  }
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 32px;}
+
+  /* ---- depth ruler decorative strip ---- */
+  .ruler{
+    height:22px;
+    background:repeating-linear-gradient(
+      90deg,
+      var(--line) 0px, var(--line) 1px,
+      transparent 1px, transparent 40px
+    );
+    border-bottom:1px solid var(--line);
+    position:relative;
+    overflow:hidden;
+  }
+  .ruler::after{
+    content:"— 0 M";
+    position:absolute; left:32px; top:2px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px; letter-spacing:.05em;
+    color:var(--text-dim);
+  }
+
+  /* ---- header ---- */
+  header{
+    padding:28px 0 22px;
+    border-bottom:1px solid var(--line);
+  }
+  .header-row{
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .brand{
+    display:flex; align-items:center; gap:12px;
+  }
+  .brand-mark{
+    width:34px;height:34px;
+    background:var(--orange);
+    clip-path:polygon(0 100%, 50% 0, 100% 100%);
+    flex-shrink:0;
+  }
+  .brand-name{
+    font-family:'Oswald',sans-serif;
+    font-size:20px; font-weight:600;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+  }
+  .brand-name span{color:var(--cyan);}
+  nav{display:flex; gap:28px;}
+  nav a{
+    color:var(--text-dim);
+    text-decoration:none;
+    font-size:13px;
+    font-weight:500;
+    letter-spacing:.03em;
+  }
+  nav a:hover{color:var(--text);}
+
+  /* ---- tab selector ---- */
+  .tabbar{
+    display:flex;
+    gap:0;
+    border-bottom:1px solid var(--line);
+    margin-top:8px;
+    overflow-x:auto;
+  }
+  .tab{
+    font-family:'Oswald',sans-serif;
+    font-size:13px;
+    font-weight:500;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    background:none;
+    border:none;
+    padding:18px 22px 14px;
+    cursor:pointer;
+    position:relative;
+    white-space:nowrap;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:6px;
+    transition:color .15s ease;
+  }
+  .tab .depth-tag{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    font-weight:400;
+    letter-spacing:.02em;
+    color:var(--text-dim);
+    opacity:.7;
+    text-transform:none;
+  }
+  .tab::after{
+    content:"";
+    position:absolute; left:22px; right:22px; bottom:-1px;
+    height:2px; background:transparent;
+    transition:background .15s ease;
+  }
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--text);}
+  .tab.active::after{background:var(--orange);}
+  .tab.active .depth-tag{color:var(--orange); opacity:1;}
+
+  /* ---- cards ---- */
+  main{padding:44px 0 80px;}
+  .section-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:.08em;
+    color:var(--cyan);
+    text-transform:uppercase;
+    margin-bottom:8px;
+  }
+  .section-title{
+    font-family:'Oswald',sans-serif;
+    font-size:30px;
+    font-weight:600;
+    letter-spacing:.01em;
+    margin-bottom:34px;
+    max-width:560px;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:24px;
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:2px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    opacity:0;
+    transform:translateY(10px);
+    animation:rise .5s ease forwards;
+  }
+  .card:nth-child(1){animation-delay:.03s;}
+  .card:nth-child(2){animation-delay:.09s;}
+  .card:nth-child(3){animation-delay:.15s;}
+  @keyframes rise{to{opacity:1; transform:translateY(0);}}
+
+  .card-img{
+    height:180px;
+    position:relative;
+    overflow:hidden;
+  }
+  .card-img .grain{
+    position:absolute; inset:0;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,.04) 0px, transparent 1px, transparent 3px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0px, transparent 1px, transparent 5px);
+  }
+  .card-img .ping{
+    position:absolute; left:50%; top:50%;
+    width:10px;height:10px;border-radius:50%;
+    background:var(--orange);
+    box-shadow:0 0 0 0 rgba(255,90,31,.6);
+    animation:ping 2.4s ease-out infinite;
+  }
+  @keyframes ping{
+    0%{box-shadow:0 0 0 0 rgba(255,90,31,.5);}
+    70%{box-shadow:0 0 0 24px rgba(255,90,31,0);}
+    100%{box-shadow:0 0 0 0 rgba(255,90,31,0);}
+  }
+
+  .card-body{padding:20px 20px 22px;flex:1;display:flex;flex-direction:column;}
+  .card-eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:.06em;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    margin-bottom:10px;
+  }
+  .card-title{
+    font-family:'Oswald',sans-serif;
+    font-size:19px;
+    font-weight:600;
+    margin-bottom:10px;
+  }
+  .card-desc{
+    font-size:13.5px;
+    line-height:1.55;
+    color:var(--text-dim);
+    margin-bottom:18px;
+    flex:1;
+  }
+  .card-spec{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:.02em;
+    color:var(--cyan);
+    border-top:1px solid var(--line);
+    padding-top:12px;
+    display:flex;
+    justify-content:space-between;
+  }
+
+  @media(max-width:860px){
+    .grid{grid-template-columns:1fr;}
+    nav{display:none;}
+    .section-title{font-size:24px;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="ruler"></div>
+
+  <div class="wrap">
+    <header>
+      <div class="header-row">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div class="brand-name">Deep<span>work</span></div>
+        </div>
+        <nav>
+          <a href="#">Projetos</a>
+          <a href="#">Frota</a>
+          <a href="#">Engenharia</a>
+          <a href="#">Contacto</a>
+        </nav>
+      </div>
+
+      <div class="tabbar" id="tabbar">
+        <button class="tab active" data-tab="subsea">
+          Sistemas Subsea
+          <span class="depth-tag">0—3.000M</span>
+        </button>
+        <button class="tab" data-tab="floating">
+          Estruturas Flutuantes
+          <span class="depth-tag">SUPERFÍCIE</span>
+        </button>
+        <button class="tab" data-tab="pipelines">
+          Dutos &amp; Risers
+          <span class="depth-tag">LEITO MARINHO</span>
+        </button>
+        <button class="tab" data-tab="renewables">
+          Energias Renováveis
+          <span class="depth-tag">OFFSHORE WIND</span>
+        </button>
+        <button class="tab" data-tab="decom">
+          Descomissionamento
+          <span class="depth-tag">FIM DE VIDA ÚTIL</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <div class="section-label" id="sectionLabel">01 / 05</div>
+      <div class="section-title" id="sectionTitle">Sistemas Subsea</div>
+      <div class="grid" id="cardGrid"></div>
+    </main>
+  </div>
+
+<script>
+const DATA = {
+  subsea: {
+    label: "01 / 05",
+    title: "Sistemas Subsea",
+    cards: [
+      {eyebrow:"Templates de produção", title:"Manifolds submarinos", desc:"Projeto e instalação de manifolds para controlo de fluxo em campos de águas profundas.", spec:"OP. 2.400M · ATIVO", hue:[6,30]},
+      {eyebrow:"Controlo & automação", title:"Árvores de natal molhadas", desc:"Sistemas de válvulas submarinas para controlo de poços em produção contínua.", spec:"OP. 1.850M · ATIVO", hue:[195,215]},
+      {eyebrow:"Inspeção", title:"ROV de intervenção", desc:"Veículos operados remotamente para inspeção, manutenção e reparo subaquático.", spec:"OP. 3.000M · STANDBY", hue:[170,190]},
+    ]
+  },
+  floating: {
+    label: "02 / 05",
+    title: "Estruturas Flutuantes",
+    cards: [
+      {eyebrow:"Produção & armazenamento", title:"Unidades FPSO", desc:"Conversão e integração de topsides para unidades flutuantes de produção.", spec:"CAP. 180K BBL/D", hue:[20,45]},
+      {eyebrow:"Ancoragem", title:"Sistemas de amarração", desc:"Projeto de linhas de ancoragem para condições extremas de mar aberto.", spec:"PROFUND. ATÉ 2.200M", hue:[195,220]},
+      {eyebrow:"Plataformas", title:"Semi-submersíveis", desc:"Engenharia estrutural para plataformas de perfuração e produção flutuante.", spec:"CLASSE DP3", hue:[200,230]},
+    ]
+  },
+  pipelines: {
+    label: "03 / 05",
+    title: "Dutos & Risers",
+    cards: [
+      {eyebrow:"Lançamento", title:"Pipelay S-Lay / J-Lay", desc:"Instalação de dutos rígidos e flexíveis em diferentes lâminas d'água.", spec:"Ø ATÉ 48\" · MULTI-CAMADA", hue:[10,35]},
+      {eyebrow:"Interligação", title:"Risers dinâmicos", desc:"Conexão entre unidades flutuantes e infraestrutura de leito marinho.", spec:"FADIGA CLASSE A", hue:[175,195]},
+      {eyebrow:"Proteção", title:"Enterramento de dutos", desc:"Trenching e cobertura para proteção mecânica e térmica de linhas submarinas.", spec:"PROF. ENTERRO 1,5M", hue:[30,50]},
+    ]
+  },
+  renewables: {
+    label: "04 / 05",
+    title: "Energias Renováveis",
+    cards: [
+      {eyebrow:"Eólica offshore", title:"Fundações monopile", desc:"Instalação de fundações para aerogeradores em águas rasas e intermédias.", spec:"DIÂM. ATÉ 11M", hue:[160,185]},
+      {eyebrow:"Flutuante", title:"Plataformas eólicas flutuantes", desc:"Estruturas para geração eólica em águas profundas, fora da linha de vista.", spec:"PROF. > 60M", hue:[195,220]},
+      {eyebrow:"Interconexão", title:"Cabos submarinos HVDC", desc:"Projeto e lançamento de cabos de exportação de energia offshore.", spec:"TENSÃO 320KV", hue:[5,25]},
+    ]
+  },
+  decom: {
+    label: "05 / 05",
+    title: "Descomissionamento",
+    cards: [
+      {eyebrow:"Remoção", title:"Desmontagem de topsides", desc:"Remoção segura e faseada de estruturas em fim de vida útil.", spec:"CAP. GUINDASTE 5.000T", hue:[20,40]},
+      {eyebrow:"Ambiental", title:"Reciclagem de estruturas", desc:"Gestão de materiais e conformidade ambiental no desmantelamento.", spec:"TAXA RECICL. 92%", hue:[170,190]},
+      {eyebrow:"Encerramento", title:"Selagem de poços", desc:"Abandono permanente de poços conforme normas internacionais.", spec:"CERT. P&A COMPLETO", hue:[195,215]},
+    ]
+  }
+};
+
+function renderTab(key){
+  const d = DATA[key];
+  document.getElementById('sectionLabel').textContent = d.label;
+  document.getElementById('sectionTitle').textContent = d.title;
+
+  const grid = document.getElementById('cardGrid');
+  grid.innerHTML = '';
+  d.cards.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-img" style="background:linear-gradient(160deg, hsl(${c.hue[0]} 70% 14%), hsl(${c.hue[1]} 55% 26%));">
+        <div class="grain"></div>
+        <div class="ping"></div>
+      </div>
+      <div class="card-body">
+        <div class="card-eyebrow">${c.eyebrow}</div>
+        <div class="card-title">${c.title}</div>
+        <div class="card-desc">${c.desc}</div>
+        <div class="card-spec"><span>${c.spec}</span><span>→</span></div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    renderTab(tab.dataset.tab);
+  });
+});
+
+renderTab('subsea');
+</script>
+
+</body>
+</html>

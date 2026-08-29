@@ -1,0 +1,16 @@
+project_id = "dtednbeqgqjbzgiqhedo"
+
+[functions.send-payment-notification]
+verify_jwt = false
+
+[functions.approve-access-request]
+verify_jwt = false
+
+[functions.notify-admin-access-request]
+verify_jwt = false
+
+[functions.record-failed-login]
+verify_jwt = false
+
+[functions.reset-login-attempts]
+verify_jwt = false

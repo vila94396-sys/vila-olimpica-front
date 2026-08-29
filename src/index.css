@@ -1,0 +1,188 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 150 30% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 150 30% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 150 30% 12%;
+
+    /* Primary: Deep forest green */
+    --primary: 150 45% 22%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary: Light green tint */
+    --secondary: 150 25% 97%;
+    --secondary-foreground: 150 45% 22%;
+
+    --muted: 150 15% 95%;
+    --muted-foreground: 150 15% 40%;
+
+    /* Accent: Rich gold */
+    --accent: 42 90% 48%;
+    --accent-foreground: 0 0% 100%;
+    --accent-glow: 42 90% 60%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 150 15% 90%;
+    --input: 150 15% 90%;
+    --ring: 150 45% 22%;
+
+    --radius: 0.75rem;
+    
+    /* Custom design tokens */
+    --shadow-elegant: 0 20px 40px -15px hsl(150 45% 22% / 0.12);
+    --shadow-glow: 0 0 60px hsl(42 90% 48% / 0.25);
+    --shadow-card: 0 4px 20px -4px hsl(150 45% 22% / 0.08);
+    
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 150 30% 20%;
+    --sidebar-primary: 150 45% 22%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 150 15% 95%;
+    --sidebar-accent-foreground: 150 45% 22%;
+    --sidebar-border: 150 15% 90%;
+    --sidebar-ring: 42 90% 48%;
+  }
+
+  .dark {
+    --background: 150 25% 6%;
+    --foreground: 150 20% 96%;
+
+    --card: 150 20% 10%;
+    --card-foreground: 150 20% 96%;
+
+    --popover: 150 20% 10%;
+    --popover-foreground: 150 20% 96%;
+
+    --primary: 150 55% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 150 20% 14%;
+    --secondary-foreground: 150 20% 96%;
+
+    --muted: 150 15% 14%;
+    --muted-foreground: 150 10% 55%;
+
+    --accent: 42 95% 52%;
+    --accent-foreground: 0 0% 100%;
+    --accent-glow: 42 95% 65%;
+
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 150 15% 18%;
+    --input: 150 15% 18%;
+    --ring: 150 55% 42%;
+    
+    --shadow-elegant: 0 20px 40px -15px hsl(0 0% 0% / 0.6);
+    --shadow-glow: 0 0 60px hsl(42 95% 52% / 0.35);
+    --shadow-card: 0 4px 20px -4px hsl(0 0% 0% / 0.4);
+    
+    --sidebar-background: 150 25% 8%;
+    --sidebar-foreground: 150 20% 95%;
+    --sidebar-primary: 150 55% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 150 15% 12%;
+    --sidebar-accent-foreground: 150 20% 95%;
+    --sidebar-border: 150 15% 16%;
+    --sidebar-ring: 42 95% 52%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply text-accent;
+  }
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .animate-fade-up {
+    animation: fadeUp 0.6s ease-out forwards;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.4s ease-out forwards;
+  }
+  
+  .stagger-1 { animation-delay: 0.1s; }
+  .stagger-2 { animation-delay: 0.2s; }
+  .stagger-3 { animation-delay: 0.3s; }
+  .stagger-4 { animation-delay: 0.4s; }
+  
+  .glass {
+    @apply bg-background/80 backdrop-blur-xl;
+  }
+  
+  .glass-card {
+    @apply bg-card/90 backdrop-blur-lg border border-border/50;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
