@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getLocalAuthSession, clearLocalAuthSession } from "@/lib/localAuth";
 
 export interface User {
@@ -36,57 +36,43 @@ function buildLocalSession(): { user: User; session: Session; isAdmin: boolean }
 }
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [sessionData, setSessionData] = useState(() => buildLocalSession());
+  const sessionDataRef = useRef(sessionData);
+  sessionDataRef.current = sessionData;
 
   useEffect(() => {
-    const applyLocalSessionOrClear = () => {
-      const local = buildLocalSession();
-      if (local) {
-        setSession(local.session);
-        setUser(local.user);
-        setIsAdmin(local.isAdmin);
-      } else {
-        setSession(null);
-        setUser(null);
-        setIsAdmin(false);
-      }
-      setIsLoading(false);
+    // Sync if localStorage changes in other tabs
+    const handleStorage = () => {
+      setSessionData(buildLocalSession());
     };
+    window.addEventListener("storage", handleStorage);
 
-    applyLocalSessionOrClear();
-    
-    // Periodically check if session was cleared (e.g., in another tab)
+    // Periodically check if session was cleared (uses ref to avoid stale closure)
     const interval = setInterval(() => {
-      const currentLocal = getLocalAuthSession();
-      if (!currentLocal && session) {
-        applyLocalSessionOrClear();
+      const current = getLocalAuthSession();
+      if (!current && sessionDataRef.current) {
+        setSessionData(null);
       }
     }, 5000);
 
-    return () => clearInterval(interval);
-  }, [session]);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      clearInterval(interval);
+    };
+  }, []); // empty deps: only run once on mount
 
   const signOut = async () => {
-    try {
-      setSession(null);
-      setUser(null);
-      setIsAdmin(false);
-      clearLocalAuthSession();
-    } catch (error) {
-      console.error("Error during signOut:", error);
-    } finally {
-      window.location.replace("/auth");
-    }
+    clearLocalAuthSession();
+    setSessionData(null);
+    window.location.replace("/auth");
   };
 
   return {
-    user,
-    session,
-    isAdmin,
-    isLoading,
+    user: sessionData?.user ?? null,
+    session: sessionData?.session ?? null,
+    isAdmin: sessionData?.isAdmin ?? false,
+    isLoading: false,
     signOut,
   };
 };
+

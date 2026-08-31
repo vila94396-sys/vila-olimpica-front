@@ -142,48 +142,29 @@ const AdminDashboard = () => {
         fetchData();
       }
     }
-  }, [authLoading, session, isAdmin, navigate]);
+  }, [authLoading, session?.access_token, isAdmin]); // navigate is stable, no need to include
+
 
   const fetchData = async () => {
     setIsLoading(true);
-    await Promise.all([fetchReservations(), fetchServices(), fetchStats()]);
-    setIsLoading(false);
-  };
-
-  const fetchReservations = async () => {
     try {
-      const data = await reservationsApi.list();
-      setReservations(data || []);
-    } catch (error) {
-      console.error("Error fetching reservations:", error);
-    }
-  };
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const fetchServices = async () => {
-    try {
-      const data = await marketplaceApi.listAll();
-      setServices(data || []);
-    } catch (error) {
-      console.error("Error fetching services:", error);
-    }
-  };
-
-
-  const fetchStats = async () => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    try {
+      // Single batch of 3 calls — no duplicates
       const [allReservations, allServices, accessRequests] = await Promise.all([
         reservationsApi.list().catch(() => [] as any[]),
         marketplaceApi.listAll().catch(() => [] as any[]),
         accessRequestsApi.list().catch(() => [] as any[]),
       ]);
 
-      const pendingServices = allServices.filter((s: any) => s.status === "pending").length;
-      const approvedServices = allServices.filter((s: any) => s.status === "approved").length;
+      setReservations(allReservations || []);
+      setServices(allServices || []);
+
       const reservList = allReservations as any[];
       const thisMonth = reservList.filter((r: any) => new Date(r.created_at) >= startOfMonth);
+      const pendingServices = (allServices as any[]).filter((s: any) => s.status === "pending").length;
+      const approvedServices = (allServices as any[]).filter((s: any) => s.status === "approved").length;
 
       setStats({
         totalReservations: reservList.length,
@@ -194,13 +175,19 @@ const AdminDashboard = () => {
         reservationsThisMonth: thisMonth.length,
         pendingServices,
         approvedServices,
-        pendingAccessRequests: (accessRequests as any[]).filter((r: any) => r.status === "PENDING" || r.status === "pending").length,
+        pendingAccessRequests: (accessRequests as any[]).filter(
+          (r: any) => r.status === "PENDING" || r.status === "pending"
+        ).length,
         totalDebt: 0,
       });
     } catch (error) {
-      console.error("Error fetching stats:", error);
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
+
+
 
   const handleUpdateStatus = async (reservationId: string, newStatus: string) => {
     try {

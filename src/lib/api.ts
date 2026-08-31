@@ -41,14 +41,24 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getLocalAuthSession()?.token;
   const isFormData = options.body instanceof FormData;
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+  // Abort after 10s to prevent requests hanging during Render cold starts
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const data = await res.json().catch(() => ({}));
 
