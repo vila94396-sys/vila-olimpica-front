@@ -393,7 +393,7 @@ const FpdMoradoresGrid = ({ unidades, taxas, onRefresh }: Props) => {
         unidade={fpdHistoryUnidade}
         taxas={fpdHistoryTaxas}
         adminUserId={user?.id}
-        residentUserId={historyUnidade?.user_id ?? null}
+        residentUserId={historyUnidade?.user_id == null ? null : String(historyUnidade.user_id)}
         system="FPD"
       />
 

@@ -10,7 +10,7 @@ import { authApi } from "@/lib/api";
 import { getLocalAuthSession, setLocalAuthSession } from "@/lib/localAuth";
 
 const emailSchema = z.string().email("Email inválido");
-const passwordSchema = z.string().min(6, "A senha deve ter pelo menos 6 caracteres");
+const passwordSchema = z.string().min(12, "A senha deve ter pelo menos 12 caracteres").max(72, "A senha não pode exceder 72 caracteres");
 
 type AuthView = "login" | "forgot-password" | "password-reset-sent";
 
@@ -80,10 +80,10 @@ const AuthPage = () => {
             description: "Login realizado com sucesso.",
           });
           navigate("/area-morador");
-        } catch (backendError: any) {
+        } catch (backendError: unknown) {
           toast({
             title: "Erro de Login",
-            description: backendError.message || "Email ou senha incorretos. Verifique suas credenciais.",
+            description: backendError instanceof Error ? backendError.message : "Email ou senha incorretos. Verifique suas credenciais.",
             variant: "destructive",
           });
         }

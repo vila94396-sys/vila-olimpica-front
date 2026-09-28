@@ -149,6 +149,27 @@ export interface UnlockResidentResponse {
 
 export const residentsApi = {
   list: () => request<ResidentDto[]>("/admin/residents"),
+  myFees: () => request<Array<{
+    id: string;
+    unidade_id: number;
+    reference_month: string;
+    reference_year: number;
+    amount: number;
+    valor_pago: number;
+    due_date: string;
+    status: string;
+    paid_at: string | null;
+    payment_method: string | null;
+    receipt_url: string | null;
+  }>>("/residents/me/fees"),
+  myUnidade: () => request<{ id: number; divida_anterior: number; pagamentos_historicos: number } | null>("/residents/me/unidade"),
+  uploadReceipt: (feeId: string, formData: FormData) =>
+    request<{ url: string }>(`/residents/me/fees/${encodeURIComponent(feeId)}/receipt`, { method: "POST", body: formData }),
+  submitPaymentReceipt: (feeId: string, payload: { payment_method: string; receipt_url: string }) =>
+    request<{ message: string }>(`/residents/me/fees/${encodeURIComponent(feeId)}/submit-receipt`, { method: "POST", body: JSON.stringify(payload) }),
+  processPayment: async (_payload: { feeId: string; method: string; amount: number; phone?: string; cardNumber?: string; cardExpiry?: string; cardCvv?: string; cardName?: string }): Promise<never> => {
+    throw new Error("Pagamentos digitais ainda não estão configurados. Envie o comprovativo de transferência bancária.");
+  },
 
   deactivate: (id: number) =>
     request<ResidentDto>(`/admin/residents/${id}/deactivate`, { method: "POST" }),

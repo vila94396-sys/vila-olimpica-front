@@ -57,7 +57,7 @@ const TransactionHistory = () => {
     setIsLoading(true);
     try {
       const data = await residentsApi.myFees();
-      setTransactions((data || []).filter((f: any) => f.status === "paid"));
+      setTransactions((data || []).filter((f) => f.status === "paid"));
     } catch (error) {
       console.error("Error fetching transactions:", error);
     } finally {

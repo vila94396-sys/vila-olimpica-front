@@ -10,7 +10,19 @@ import { marketplaceApi, MarketplaceServiceDto } from "@/lib/api";
 
 const MarketplacePage = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
-  const [selectedEntrepreneur, setSelectedEntrepreneur] = useState<any>(null);
+  const [selectedEntrepreneur, setSelectedEntrepreneur] = useState<{
+    id: string;
+    name: string;
+    service: string;
+    category: string;
+    description: string;
+    fullDescription: string | null;
+    image: string;
+    phone: string;
+    email: string;
+    location: string | null;
+    hours: string | null;
+  } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dbServices, setDbServices] = useState<MarketplaceServiceDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +59,7 @@ const MarketplacePage = () => {
     ? allServices
     : allServices.filter((s) => s.category === selectedCategory);
 
-  const handleViewDetails = (service: MarketplaceService) => {
+  const handleViewDetails = (service: MarketplaceServiceDto) => {
     setSelectedEntrepreneur({
       id: service.id,
       name: service.owner_name,

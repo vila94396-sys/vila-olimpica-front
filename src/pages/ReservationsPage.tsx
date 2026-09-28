@@ -10,32 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { reservationsApi } from "@/lib/api";
+import { reservationsApi, CommonAreaDto, ReservationDto } from "@/lib/api";
 import { clearLocalAuthSession } from "@/lib/localAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-
-interface CommonArea {
-  id: string;
-  name: string;
-  description: string;
-  capacity: number;
-  rules: string;
-}
-
-interface Reservation {
-  id: string;
-  user_id: string;
-  area_id: string;
-  reservation_date: string;
-  start_time: string;
-  end_time: string;
-  status: string;
-  notes: string;
-  common_areas?: CommonArea;
-}
 
 const timeSlots = [
   { value: "08:00", label: "08:00" },
@@ -57,9 +37,9 @@ const timeSlots = [
 
 const ReservationsPage = () => {
   const { user, session, isLoading: authLoading } = useAuth();
-  const [areas, setAreas] = useState<CommonArea[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [myReservations, setMyReservations] = useState<Reservation[]>([]);
+  const [areas, setAreas] = useState<CommonAreaDto[]>([]);
+  const [reservations, setReservations] = useState<ReservationDto[]>([]);
+  const [myReservations, setMyReservations] = useState<ReservationDto[]>([]);
   const [selectedArea, setSelectedArea] = useState<string>("" );
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [startTime, setStartTime] = useState<string>("");
@@ -91,13 +71,13 @@ const ReservationsPage = () => {
     }
   };
 
-  const fetchReservations = async (userId: string) => {
+  const fetchReservations = async (_userId: string) => {
     try {
       const [allData, myData] = await Promise.all([
         reservationsApi.list(),
         reservationsApi.listMine(),
       ]);
-      setReservations((allData || []).filter((r: any) => r.status === "confirmed"));
+      setReservations((allData || []).filter((r) => r.status === "confirmed"));
       setMyReservations(myData || []);
     } catch (error) {
       console.error("Error fetching reservations:", error);
@@ -165,10 +145,10 @@ const ReservationsPage = () => {
       setNotes("");
       setAcceptedRules(false);
       if (user) fetchReservations(user.id);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro",
-        description: error?.message || "Não foi possível realizar a reserva. Tente novamente.",
+        description: (error instanceof Error ? error.message : undefined) || "Não foi possível realizar a reserva. Tente novamente.",
         variant: "destructive",
       });
     }
