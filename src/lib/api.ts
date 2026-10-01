@@ -1,7 +1,9 @@
 import { getLocalAuthSession } from "@/lib/localAuth";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
-const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
+// Normaliza a URL base para que funcione tanto se VITE_API_URL tiver "/api", barra no final, ou apenas o domínio
+const rawApiUrl = (import.meta.env.VITE_API_URL || "http://localhost:3001/api").trim().replace(/\/+$/, "");
+const API_URL = rawApiUrl.endsWith("/api") ? rawApiUrl : `${rawApiUrl}/api`;
+const API_ORIGIN = API_URL.replace(/\/api$/, "");
 
 // Uploaded files are stored as paths relative to the backend (e.g. "/uploads/x.jpg")
 // so they keep working regardless of which domain the backend is hosted on.
